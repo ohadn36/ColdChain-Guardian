@@ -49,6 +49,7 @@ class DatabaseManagerTests(unittest.TestCase):
         self.assertTrue(changed)
         self.assertTrue(record.acknowledged)
         self.assertIsNotNone(record.acknowledged_at)
+        self.assertEqual(self.database.get_alert(alert.alert_id), record)
 
     def test_actuator_event_insert_and_query(self) -> None:
         row_id = self.database.insert_actuator_event(
@@ -69,4 +70,3 @@ class DatabaseManagerTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
