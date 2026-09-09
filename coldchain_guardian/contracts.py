@@ -170,3 +170,31 @@ class AlertEvent:
     acknowledged: bool = False
     schema_version: int = SCHEMA_VERSION
 
+
+@dataclass(frozen=True)
+class TemperatureOverrideCommand:
+    shipment_id: str
+    timestamp: str
+    enabled: bool
+    target_temperature_c: float | None
+    source: str = "KNOB"
+    schema_version: int = SCHEMA_VERSION
+
+    @classmethod
+    def create(
+        cls,
+        *,
+        shipment_id: str,
+        enabled: bool,
+        target_temperature_c: float | None,
+    ) -> TemperatureOverrideCommand:
+        if enabled and target_temperature_c is None:
+            raise ValueError("enabled override requires a target temperature")
+        return cls(
+            shipment_id=shipment_id,
+            timestamp=now_iso(),
+            enabled=enabled,
+            target_temperature_c=(
+                None if target_temperature_c is None else float(target_temperature_c)
+            ),
+        )

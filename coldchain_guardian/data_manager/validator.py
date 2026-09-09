@@ -10,6 +10,7 @@ from coldchain_guardian.contracts import (
     CommandMessage,
     DeviceStateMessage,
     SensorReading,
+    TemperatureOverrideCommand,
     parse_timestamp,
 )
 
@@ -153,3 +154,42 @@ def validate_alert_ack(
         raise MessageValidationError("alert_id must be a positive integer")
     return alert_id
 
+
+def validate_temperature_override(
+    payload: Mapping[str, Any],
+    *,
+    expected_shipment_id: str,
+    minimum_c: float,
+    maximum_c: float,
+) -> TemperatureOverrideCommand:
+    shipment_id, timestamp = _common(payload, expected_shipment_id)
+    enabled = payload.get("enabled")
+    if not isinstance(enabled, bool):
+        raise MessageValidationError("enabled must be a boolean")
+    source = _string(payload, "source")
+    if source != "KNOB":
+        raise MessageValidationError("temperature override source must be KNOB")
+
+    target_value = payload.get("target_temperature_c")
+    if enabled:
+        target = _number(payload, "target_temperature_c")
+        if not minimum_c <= target <= maximum_c:
+            raise MessageValidationError(
+                f"override target must be between {minimum_c} and {maximum_c}"
+            )
+    elif target_value is None:
+        target = None
+    elif isinstance(target_value, bool) or not isinstance(target_value, (int, float)):
+        raise MessageValidationError(
+            "target_temperature_c must be numeric or null"
+        )
+    else:
+        target = float(target_value)
+
+    return TemperatureOverrideCommand(
+        shipment_id=shipment_id,
+        timestamp=timestamp,
+        enabled=enabled,
+        target_temperature_c=target,
+        source=source,
+    )
