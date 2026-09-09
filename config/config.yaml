@@ -1,0 +1,46 @@
+mqtt:
+  host: "127.0.0.1"
+  port: 1883
+  keepalive_seconds: 60
+  reconnect_min_delay_seconds: 1
+  reconnect_max_delay_seconds: 30
+
+shipment:
+  id: "shipment01"
+
+devices:
+  temperature_sensor_id: "temp_sensor_01"
+  humidity_sensor_id: "humidity_sensor_01"
+  door_sensor_id: "door_sensor_01"
+  cooling_relay_id: "cooling_relay_01"
+
+emulation:
+  publish_interval_seconds: 2.0
+  initial_temperature_c: 5.0
+  initial_humidity_percent: 45.0
+  temperature_drift_step_c: 0.15
+  humidity_drift_step_percent: 0.5
+  temperature_min_c: -5.0
+  temperature_max_c: 20.0
+
+rules:
+  temperature_min_c: 2.0
+  temperature_warning_high_c: 8.0
+  temperature_alarm_high_c: 10.0
+  cooling_off_below_c: 7.0
+  humidity_min_percent: 20.0
+  humidity_max_percent: 70.0
+  door_warning_after_seconds: 10
+  failure_trend_readings: 3
+
+database:
+  path: "data/coldchain.db"
+
+logging:
+  level: "INFO"
+  data_manager_path: "logs/data_manager.log"
+
+gui:
+  chart_history_points: 120
+  history_row_limit: 200
+
