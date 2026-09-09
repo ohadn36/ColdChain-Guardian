@@ -7,6 +7,7 @@ from coldchain_guardian.data_manager.validator import (
     MessageValidationError,
     validate_alert_ack,
     validate_sensor_reading,
+    validate_temperature_override,
 )
 
 
@@ -65,7 +66,23 @@ class ValidatorTests(unittest.TestCase):
         with self.assertRaisesRegex(MessageValidationError, "positive integer"):
             validate_alert_ack(ack, expected_shipment_id="shipment01")
 
+    def test_temperature_override_is_bounded(self) -> None:
+        override = {
+            "schema_version": self.payload["schema_version"],
+            "shipment_id": self.payload["shipment_id"],
+            "timestamp": self.payload["timestamp"],
+            "enabled": True,
+            "target_temperature_c": 25.0,
+            "source": "KNOB",
+        }
+        with self.assertRaisesRegex(MessageValidationError, "between"):
+            validate_temperature_override(
+                override,
+                expected_shipment_id="shipment01",
+                minimum_c=-5.0,
+                maximum_c=20.0,
+            )
+
 
 if __name__ == "__main__":
     unittest.main()
-
