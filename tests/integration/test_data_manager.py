@@ -16,6 +16,7 @@ from coldchain_guardian.contracts import (
 )
 from coldchain_guardian.data_manager.manager import DataManager
 from coldchain_guardian.database.db_manager import DatabaseManager
+from coldchain_guardian.gui.models import DashboardSnapshot
 from coldchain_guardian.topics import TopicRegistry
 
 
@@ -85,6 +86,16 @@ class DataManagerIntegrationTests(unittest.TestCase):
         self.assertTrue(
             any(topic == self.topics.state_snapshot for topic, _, _, _ in publications)
         )
+        snapshot_payload = next(
+            payload
+            for topic, payload, _, _ in reversed(publications)
+            if topic == self.topics.state_snapshot
+        )
+        snapshot = DashboardSnapshot.from_payload(
+            snapshot_payload,
+            expected_shipment_id=self.config.shipment.id,
+        )
+        self.assertEqual(snapshot.temperature_c, 9.0)
 
     def test_duplicate_reading_does_not_flood_alerts_or_commands(self) -> None:
         self.manager.process_message(self.topics.temperature, self._temperature(9.0))
@@ -178,4 +189,3 @@ class DataManagerIntegrationTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
