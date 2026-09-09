@@ -12,8 +12,7 @@
 | Local/Cloud DB | Three SQLite tables and indexes | `schema.sql` | Readings, alerts, actuator events |
 | Project repository | Structured Python package, tests, launcher, README | entire repository | GitHub link in presentation |
 | Short running-code video | Deterministic 2–3 minute script | `docs/demo-script.md` | Embedded MP4 in slide 10 |
-| 10–12 minute presentation recording | 11-minute presentation plan | `PROJECT_PLAN_HE.md` | Recording link in presentation |
-| DOCX and PDF summary | 5–7 page outline | `PROJECT_PLAN_HE.md` | Submitted DOCX and PDF |
+| 10–12 minute presentation recording | Prepared outside the code repository | Not stored in this repository | Recording link in presentation |
+| DOCX and PDF summary | Prepared outside the code repository | Not stored in this repository | Submitted DOCX and PDF |
 
 The enumerated code sub-items total 27 points although the Project Code heading states 30. Repository quality, tests, configuration, logging, and one-command startup provide explicit evidence for the remaining unspecified quality points.
-

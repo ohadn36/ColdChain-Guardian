@@ -210,9 +210,8 @@ Confirm that the broker and Data Manager are running, then inspect `logs/data_ma
 
 Generate readings with the Emulator Console and confirm that `data/coldchain.db` exists.
 
-## Technical planning
+## Technical documentation
 
-- [Comprehensive implementation plan](PROJECT_PLAN_HE.md)
 - [Architecture](docs/architecture.md)
 - [MQTT contracts](docs/mqtt-contracts.md)
 - [Demonstration script](docs/demo-script.md)
