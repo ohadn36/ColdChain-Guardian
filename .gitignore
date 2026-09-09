@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+
+# Runtime data
+data/*
+!data/.gitkeep
+logs/*
+!logs/.gitkeep
+
+# Course deliverables are kept outside the code repository
+deliverables/
+*.mp4
+*.mov
+*.pptx
+*.docx
+*.pdf
+
+# Editors and operating systems
+.DS_Store
+.idea/
+.vscode/
+
