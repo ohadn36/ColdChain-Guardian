@@ -7,6 +7,7 @@ allows concurrent readers and a single writer.
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 import sqlite3
@@ -71,24 +72,33 @@ class DatabaseManager:
         connection.execute("PRAGMA busy_timeout = 5000")
         return connection
 
+    @contextmanager
+    def _connection(self):
+        connection = self._connect()
+        try:
+            with connection:
+                yield connection
+        finally:
+            connection.close()
+
     def initialize(self) -> None:
         """Create the database directory, schema, and indexes when absent."""
 
         self.path.parent.mkdir(parents=True, exist_ok=True)
         schema = SCHEMA_PATH.read_text(encoding="utf-8")
-        with self._connect() as connection:
+        with self._connection() as connection:
             connection.executescript(schema)
 
     def health_check(self) -> bool:
         try:
-            with self._connect() as connection:
+            with self._connection() as connection:
                 result = connection.execute("SELECT 1").fetchone()
             return result is not None and result[0] == 1
         except sqlite3.Error:
             return False
 
     def insert_reading(self, reading: SensorReading) -> int:
-        with self._connect() as connection:
+        with self._connection() as connection:
             cursor = connection.execute(
                 """
                 INSERT INTO sensor_readings
@@ -117,7 +127,7 @@ class DatabaseManager:
     ) -> AlertEvent:
         alert_timestamp = timestamp or now_iso()
         severity_value = str(severity)
-        with self._connect() as connection:
+        with self._connection() as connection:
             cursor = connection.execute(
                 """
                 INSERT INTO alerts
@@ -145,7 +155,7 @@ class DatabaseManager:
     def insert_actuator_event(self, event: DeviceStateMessage) -> int:
         if event.source is None:
             raise ValueError("actuator event source is required")
-        with self._connect() as connection:
+        with self._connection() as connection:
             cursor = connection.execute(
                 """
                 INSERT INTO actuator_events
@@ -164,7 +174,7 @@ class DatabaseManager:
 
     def acknowledge_alert(self, alert_id: int, *, timestamp: str | None = None) -> bool:
         acknowledged_at = timestamp or now_iso()
-        with self._connect() as connection:
+        with self._connection() as connection:
             cursor = connection.execute(
                 """
                 UPDATE alerts
@@ -192,12 +202,12 @@ class DatabaseManager:
             parameters.append(sensor_type)
         query += " ORDER BY timestamp DESC, id DESC LIMIT ?"
         parameters.append(safe_limit)
-        with self._connect() as connection:
+        with self._connection() as connection:
             rows = connection.execute(query, parameters).fetchall()
         return [ReadingRecord(**dict(row)) for row in rows]
 
     def recent_alerts(self, *, limit: int = 200) -> list[AlertRecord]:
-        with self._connect() as connection:
+        with self._connection() as connection:
             rows = connection.execute(
                 """
                 SELECT id, timestamp, shipment_id, severity, alert_type, message,
@@ -222,10 +232,36 @@ class DatabaseManager:
             for row in rows
         ]
 
+    def get_alert(self, alert_id: int) -> AlertRecord | None:
+        if not isinstance(alert_id, int) or isinstance(alert_id, bool) or alert_id <= 0:
+            raise ValueError("alert_id must be a positive integer")
+        with self._connection() as connection:
+            row = connection.execute(
+                """
+                SELECT id, timestamp, shipment_id, severity, alert_type, message,
+                       acknowledged, acknowledged_at
+                FROM alerts
+                WHERE id = ?
+                """,
+                (alert_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        return AlertRecord(
+            id=row["id"],
+            timestamp=row["timestamp"],
+            shipment_id=row["shipment_id"],
+            severity=row["severity"],
+            alert_type=row["alert_type"],
+            message=row["message"],
+            acknowledged=bool(row["acknowledged"]),
+            acknowledged_at=row["acknowledged_at"],
+        )
+
     def recent_actuator_events(
         self, *, limit: int = 200
     ) -> list[ActuatorEventRecord]:
-        with self._connect() as connection:
+        with self._connection() as connection:
             rows = connection.execute(
                 """
                 SELECT id, timestamp, shipment_id, device_id, state, source
@@ -265,4 +301,3 @@ def make_actuator_event(
         state=state,
         source=source,
     )
-
