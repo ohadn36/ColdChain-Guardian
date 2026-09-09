@@ -208,6 +208,7 @@ def main() -> int:
 
 _STYLESHEET = """
 QWidget { background: #0f172a; color: #e2e8f0; font-size: 14px; }
+QLabel { background: transparent; }
 QLabel#title { font-size: 22px; font-weight: 700; color: #38bdf8; padding: 8px 0; }
 QGroupBox {
     border: 1px solid #334155;
@@ -231,4 +232,3 @@ QSlider::handle:horizontal { width: 18px; margin: -6px 0; background: #38bdf8; b
 
 if __name__ == "__main__":
     sys.exit(main())
-

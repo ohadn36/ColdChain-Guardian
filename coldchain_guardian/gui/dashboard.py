@@ -64,7 +64,13 @@ class StatusCard(QFrame):
         self.status_label.setText(status.replace("_", " "))
         color = STATUS_COLORS.get(status, STATUS_COLORS["UNKNOWN"])
         self.setStyleSheet(
-            f"QFrame#statusCard {{ border-left: 5px solid {color}; }}"
+            "QFrame#statusCard {"
+            " background: #1e293b; border: 1px solid #334155;"
+            f" border-left: 6px solid {color}; border-radius: 9px; padding: 10px;"
+            " }"
+        )
+        self.status_label.setStyleSheet(
+            f"color: {color}; background: transparent; font-weight: 700;"
         )
 
 
@@ -196,9 +202,12 @@ class DashboardWidget(QWidget):
         self.alert_table.setHorizontalHeaderLabels(
             ["Time", "Severity", "Event", "Acknowledged"]
         )
-        self.alert_table.horizontalHeader().setSectionResizeMode(
-            2, QHeaderView.ResizeMode.Stretch
-        )
+        header = self.alert_table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+        self.alert_table.verticalHeader().setVisible(False)
         self.alert_table.setSelectionBehavior(
             QTableWidget.SelectionBehavior.SelectRows
         )

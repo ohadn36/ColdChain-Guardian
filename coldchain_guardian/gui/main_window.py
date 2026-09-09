@@ -187,6 +187,7 @@ def _severity(value: str) -> Severity:
 
 APP_STYLESHEET = """
 QWidget { background: #0f172a; color: #e2e8f0; font-size: 13px; }
+QLabel { background: transparent; }
 QLabel#appTitle { color: #38bdf8; font-size: 26px; font-weight: 800; }
 QLabel#subtitle { color: #94a3b8; font-size: 14px; }
 QLabel#sectionTitle { color: #38bdf8; font-size: 18px; font-weight: 700; }
