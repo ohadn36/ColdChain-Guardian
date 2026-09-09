@@ -23,7 +23,9 @@ dev = [
 [tool.setuptools.packages.find]
 include = ["coldchain_guardian*"]
 
+[tool.setuptools.package-data]
+"coldchain_guardian.database" = ["schema.sql"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra"
-
