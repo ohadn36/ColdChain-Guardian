@@ -170,6 +170,12 @@ pytest
 
 The suite covers data contracts, validation, rule boundaries, hysteresis, alert deduplication, SQLite operations, emulator behavior, MQTT wrapper behavior, GUI view models, and the Data Manager integration pipeline.
 
+The real-broker end-to-end test is opt-in because it opens a temporary local port and starts a short-lived Mosquitto process:
+
+```bash
+COLDCHAIN_RUN_E2E=1 pytest -q tests/e2e/test_real_mqtt_pipeline.py
+```
+
 ## Project structure
 
 ```text
