@@ -24,6 +24,7 @@ from coldchain_guardian.database.db_manager import DatabaseManager
 from coldchain_guardian.gui.dashboard import DashboardWidget
 from coldchain_guardian.gui.history import HistoryWidget
 from coldchain_guardian.gui.models import AlertView, DashboardSnapshot, ViewModelError
+from coldchain_guardian.gui.theme import STYLESHEET
 from coldchain_guardian.mqtt_client import ManagedMqttClient
 from coldchain_guardian.topics import TopicRegistry
 
@@ -81,7 +82,7 @@ class MainWindow(QMainWindow):
             lambda index: self.history.refresh() if index == 1 else None
         )
         self.setCentralWidget(tabs)
-        self.setStyleSheet(APP_STYLESHEET)
+        self.setStyleSheet(STYLESHEET)
 
         self.bridge.snapshot_received.connect(self._on_snapshot)
         self.bridge.alert_received.connect(self._on_alert)
@@ -183,37 +184,6 @@ class MainWindow(QMainWindow):
 
 def _severity(value: str) -> Severity:
     return Severity(value)
-
-
-APP_STYLESHEET = """
-QWidget { background: #0f172a; color: #e2e8f0; font-size: 13px; }
-QLabel { background: transparent; }
-QLabel#appTitle { color: #38bdf8; font-size: 26px; font-weight: 800; }
-QLabel#subtitle { color: #94a3b8; font-size: 14px; }
-QLabel#sectionTitle { color: #38bdf8; font-size: 18px; font-weight: 700; }
-QFrame#statusCard {
-    background: #1e293b; border-radius: 9px; padding: 10px;
-}
-QLabel#cardTitle { color: #94a3b8; font-size: 12px; font-weight: 700; }
-QLabel#cardValue { color: #f8fafc; font-size: 24px; font-weight: 800; }
-QLabel#cardStatus { font-weight: 700; }
-QGroupBox {
-    background: #1e293b; border: 1px solid #334155; border-radius: 8px;
-    margin-top: 12px; padding: 12px; font-weight: 700;
-}
-QGroupBox::title { subcontrol-origin: margin; left: 12px; padding: 0 6px; }
-QPushButton {
-    background: #0369a1; border: none; border-radius: 5px;
-    padding: 8px 12px; font-weight: 700;
-}
-QPushButton:hover { background: #0284c7; }
-QPushButton:disabled { background: #334155; color: #64748b; }
-QPushButton#resetButton { background: #b45309; }
-QTableWidget { background: #111827; gridline-color: #334155; }
-QHeaderView::section { background: #1e293b; padding: 7px; border: none; }
-QTabBar::tab { background: #1e293b; padding: 10px 18px; }
-QTabBar::tab:selected { background: #0369a1; }
-"""
 
 
 def main() -> int:

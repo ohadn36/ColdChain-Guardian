@@ -69,6 +69,97 @@ class GuiSmokeTests(unittest.TestCase):
         self.assertGreater(dashboard.grab().width(), 0)
         dashboard.close()
 
+    def test_status_cards_describe_state_without_repeating_it(self) -> None:
+        from coldchain_guardian.config import load_config
+        from coldchain_guardian.contracts import now_iso
+        from coldchain_guardian.gui.dashboard import DashboardWidget
+        from coldchain_guardian.gui.models import DashboardSnapshot
+
+        config = load_config()
+        dashboard = DashboardWidget(config)
+        dashboard.update_snapshot(
+            DashboardSnapshot.from_payload(
+                {
+                    "schema_version": 1,
+                    "shipment_id": config.shipment.id,
+                    "timestamp": now_iso(),
+                    "temperature_c": 5.2,
+                    "temperature_status": "NORMAL",
+                    "humidity_percent": 45.0,
+                    "humidity_status": "NORMAL",
+                    "door_state": "OPEN",
+                    "cooling_state": "ON",
+                    "control_mode": "MANUAL",
+                    "mqtt_connected": True,
+                    "database_online": True,
+                },
+                expected_shipment_id=config.shipment.id,
+            )
+        )
+
+        self.assertEqual(dashboard.door_card.value_label.text(), "OPEN")
+        self.assertEqual(dashboard.door_card.badge_label.text(), "ATTENTION")
+        self.assertEqual(dashboard.cooling_card.value_label.text(), "ON")
+        self.assertEqual(dashboard.cooling_card.badge_label.text(), "ACTIVE")
+        self.assertEqual(dashboard.cooling_card.detail_label.text(), "MANUAL control")
+        self.assertTrue(dashboard.cooling_on_button.isEnabled())
+        self.assertFalse(dashboard.acknowledge_button.isEnabled())
+        dashboard.close()
+
+    def test_alarm_banner_follows_unacknowledged_severity(self) -> None:
+        from coldchain_guardian.config import load_config
+        from coldchain_guardian.contracts import Severity, now_iso
+        from coldchain_guardian.gui.dashboard import DashboardWidget
+        from coldchain_guardian.gui.models import AlertView
+        from coldchain_guardian.gui.theme import Tone
+
+        def alert(
+            alert_id: int,
+            severity: Severity,
+            message: str,
+            *,
+            acknowledged: bool = False,
+        ) -> AlertView:
+            return AlertView(
+                alert_id=alert_id,
+                timestamp=now_iso(),
+                severity=severity,
+                alert_type="TEST",
+                message=message,
+                acknowledged=acknowledged,
+            )
+
+        dashboard = DashboardWidget(load_config())
+        banner = dashboard.banner
+
+        # An unacknowledged INFO event is not worth a banner.
+        dashboard.set_alerts([alert(1, Severity.INFO, "Shipment door opened")])
+        self.assertEqual(banner.property("tone"), str(Tone.NORMAL))
+
+        dashboard.add_or_update_alert(alert(2, Severity.WARNING, "Door Open Too Long"))
+        self.assertEqual(banner.property("tone"), str(Tone.WARNING))
+
+        dashboard.add_or_update_alert(
+            alert(3, Severity.ALARM, "Possible Cooling System Failure")
+        )
+        self.assertEqual(banner.property("tone"), str(Tone.ALARM))
+        self.assertEqual(
+            banner.headline_label.text(), "Possible Cooling System Failure"
+        )
+
+        for acknowledged in (
+            alert(2, Severity.WARNING, "Door Open Too Long", acknowledged=True),
+            alert(
+                3,
+                Severity.ALARM,
+                "Possible Cooling System Failure",
+                acknowledged=True,
+            ),
+        ):
+            dashboard.add_or_update_alert(acknowledged)
+        self.assertEqual(banner.property("tone"), str(Tone.NORMAL))
+        dashboard.close()
+
     def test_history_loads_all_three_database_tables(self) -> None:
         from coldchain_guardian.contracts import (
             CommandSource,
