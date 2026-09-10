@@ -77,6 +77,32 @@ The relay source is one of `AUTO`, `MANUAL`, or `RESET`. Door states do not requ
 
 The Knob never publishes to `/sensors/temperature`. It sends an override to the DHT, preserving one authoritative temperature publisher.
 
+## State snapshot
+
+```json
+{
+  "schema_version": 1,
+  "shipment_id": "shipment01",
+  "timestamp": "2026-09-09T21:31:02.000+03:00",
+  "temperature_c": 9.0,
+  "temperature_status": "WARNING_HIGH",
+  "humidity_percent": 45.0,
+  "humidity_status": "NORMAL",
+  "door_state": "OPEN",
+  "door_open_too_long": true,
+  "cooling_state": "ON",
+  "cooling_failure": false,
+  "control_mode": "AUTO",
+  "mqtt_connected": true,
+  "database_online": true
+}
+```
+
+`door_open_too_long` and `cooling_failure` are the two rule conditions that have
+no sensor of their own. The snapshot carries them because alerts are an
+append-only log: it records that a condition *started*, never that it ended. The
+GUI needs live state to stop showing a condition once it clears.
+
 ## Alert event
 
 ```json

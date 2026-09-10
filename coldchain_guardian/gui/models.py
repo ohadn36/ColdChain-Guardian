@@ -32,6 +32,10 @@ class DashboardSnapshot:
     control_mode: ControlMode
     mqtt_connected: bool
     database_online: bool
+    # Rule states that have no sensor of their own. Absent means "not active",
+    # so a snapshot from an older manager still renders.
+    door_open_too_long: bool = False
+    cooling_failure: bool = False
 
     @classmethod
     def from_payload(
@@ -59,6 +63,10 @@ class DashboardSnapshot:
             control_mode=_enum(payload, "control_mode", ControlMode),
             mqtt_connected=_boolean(payload, "mqtt_connected"),
             database_online=_boolean(payload, "database_online"),
+            door_open_too_long=_optional_boolean(
+                payload, "door_open_too_long"
+            ),
+            cooling_failure=_optional_boolean(payload, "cooling_failure"),
         )
 
 
@@ -122,6 +130,12 @@ def _boolean(payload: Mapping[str, Any], name: str) -> bool:
     if not isinstance(value, bool):
         raise ViewModelError(f"{name} must be a boolean")
     return value
+
+
+def _optional_boolean(payload: Mapping[str, Any], name: str) -> bool:
+    if name not in payload:
+        return False
+    return _boolean(payload, name)
 
 
 def _enum(payload: Mapping[str, Any], name: str, enum_type):

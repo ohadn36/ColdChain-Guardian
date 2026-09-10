@@ -63,6 +63,18 @@ class RulesEngine:
             maxlen=config.failure_trend_readings
         )
 
+    @property
+    def door_open_too_long(self) -> bool:
+        """Whether the door is still open past the configured warning delay."""
+
+        return self._door_warning_emitted
+
+    @property
+    def cooling_failure_active(self) -> bool:
+        """Whether the correlated cooling-failure condition still holds."""
+
+        return self._failure_alarm_active
+
     def process_temperature(self, value: float) -> RuleEvaluation:
         self.temperature = float(value)
         self._temperature_history.append(self.temperature)

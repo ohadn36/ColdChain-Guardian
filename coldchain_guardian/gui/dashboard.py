@@ -56,6 +56,7 @@ class DashboardWidget(QWidget):
         self._temperatures: list[float] = []
         self._times: list[float] = []
         self._alerts: dict[int, AlertView] = {}
+        self._snapshot: DashboardSnapshot | None = None
         self._last_snapshot_at: float | None = None
 
         root = QVBoxLayout(self)
@@ -277,10 +278,12 @@ class DashboardWidget(QWidget):
 
     def update_snapshot(self, snapshot: DashboardSnapshot) -> None:
         self._last_snapshot_at = time.monotonic()
+        self._snapshot = snapshot
         self._update_cards(snapshot)
         self._update_header(snapshot)
         self._update_chart(snapshot)
         self._refresh_freshness()
+        self._refresh_banner()
 
     def _update_cards(self, snapshot: DashboardSnapshot) -> None:
         temperature = (
@@ -397,35 +400,87 @@ class DashboardWidget(QWidget):
         self._refresh_banner()
         self._refresh_ack_button()
 
-    def _refresh_banner(self) -> None:
-        """Show the newest unacknowledged alarm, else warning, else all-clear."""
+    def _active_conditions(self) -> list[tuple[Tone, str]]:
+        """Conditions the live snapshot still reports, worst first.
 
-        unacknowledged = [
-            alert for alert in self._alerts.values() if not alert.acknowledged
-        ]
-        for severity, tone in (
-            (Severity.ALARM, Tone.ALARM),
-            (Severity.WARNING, Tone.WARNING),
-        ):
-            matching = [
-                alert for alert in unacknowledged if alert.severity == severity
-            ]
-            if not matching:
-                continue
-            newest = max(matching, key=lambda alert: alert.alert_id)
-            remaining = len(matching) - 1
-            self.banner.show_state(
-                tone=tone,
-                severity=str(severity),
-                headline=newest.message,
-                detail=(
-                    f"{remaining} more unacknowledged"
-                    if remaining
-                    else "Awaiting acknowledgement"
-                ),
+        Alerts are an append-only log, so they cannot answer "is it still
+        wrong?" -- only the latest snapshot can.
+        """
+
+        snapshot = self._snapshot
+        if snapshot is None:
+            return []
+
+        alarms: list[tuple[Tone, str]] = []
+        warnings: list[tuple[Tone, str]] = []
+
+        def classify(tone: Tone, description: str) -> None:
+            if tone == Tone.ALARM:
+                alarms.append((tone, description))
+            elif tone == Tone.WARNING:
+                warnings.append((tone, description))
+
+        temperature = (
+            "unknown"
+            if snapshot.temperature_c is None
+            else f"{snapshot.temperature_c:.1f} °C"
+        )
+        classify(
+            tone_for_status(snapshot.temperature_status),
+            f"Temperature outside safe range: {temperature}",
+        )
+
+        humidity = (
+            "unknown"
+            if snapshot.humidity_percent is None
+            else f"{snapshot.humidity_percent:.1f} %"
+        )
+        classify(
+            tone_for_status(snapshot.humidity_status),
+            f"Humidity outside safe range: {humidity}",
+        )
+
+        if snapshot.cooling_failure:
+            alarms.append(
+                (
+                    Tone.ALARM,
+                    "Possible cooling failure: cooling on, still warming",
+                )
             )
+        if snapshot.door_open_too_long:
+            warnings.append((Tone.WARNING, "Door has been open too long"))
+
+        return alarms + warnings
+
+    def _refresh_banner(self) -> None:
+        """Describe the live condition, and how much of the log is unread."""
+
+        unacknowledged = sum(
+            1
+            for alert in self._alerts.values()
+            if not alert.acknowledged
+            and alert.severity in (Severity.WARNING, Severity.ALARM)
+        )
+        conditions = self._active_conditions()
+
+        details: list[str] = []
+        if len(conditions) > 1:
+            details.append(f"{len(conditions)} active conditions")
+        if unacknowledged:
+            details.append(f"{unacknowledged} unacknowledged")
+
+        if not conditions:
+            self.banner.show_normal(" · ".join(details) or "Nothing pending")
             return
-        self.banner.show_normal()
+
+        tone, headline = conditions[0]
+        severity = Severity.ALARM if tone == Tone.ALARM else Severity.WARNING
+        self.banner.show_state(
+            tone=tone,
+            severity=str(severity),
+            headline=headline,
+            detail=" · ".join(details) or "Condition is active now",
+        )
 
     def _selected_alert_id(self) -> int | None:
         item = self.alert_table.item(self.alert_table.currentRow(), 0)

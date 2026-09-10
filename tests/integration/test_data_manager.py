@@ -97,6 +97,43 @@ class DataManagerIntegrationTests(unittest.TestCase):
         )
         self.assertEqual(snapshot.temperature_c, 9.0)
 
+    def _latest_snapshot(self) -> DashboardSnapshot:
+        payload = next(
+            payload
+            for topic, payload, _, _ in reversed(self.mqtt.publications)
+            if topic == self.topics.state_snapshot
+        )
+        return DashboardSnapshot.from_payload(
+            payload, expected_shipment_id=self.config.shipment.id
+        )
+
+    def test_snapshot_reports_cooling_failure_while_it_lasts(self) -> None:
+        relay_on = DeviceStateMessage.create(
+            device_id=self.config.devices.cooling_relay_id,
+            shipment_id=self.config.shipment.id,
+            state=RelayState.ON,
+            source=CommandSource.AUTO,
+        )
+        self.manager.process_message(
+            self.topics.cooling_status, encode_payload(relay_on)
+        )
+
+        # Cooling is on, yet three readings in a row climb above the range.
+        for value in (8.5, 9.0, 9.5):
+            self.manager.process_message(
+                self.topics.temperature, self._temperature(value)
+            )
+        self.assertTrue(self._latest_snapshot().cooling_failure)
+
+        # The condition is over once the box is back in range, so the snapshot
+        # must say so -- the GUI has no other way to stop showing the alarm.
+        self.manager.process_message(
+            self.topics.temperature, self._temperature(5.0)
+        )
+        snapshot = self._latest_snapshot()
+        self.assertFalse(snapshot.cooling_failure)
+        self.assertEqual(snapshot.temperature_status, "NORMAL")
+
     def test_duplicate_reading_does_not_flood_alerts_or_commands(self) -> None:
         self.manager.process_message(self.topics.temperature, self._temperature(9.0))
         self.manager.process_message(self.topics.temperature, self._temperature(9.0))

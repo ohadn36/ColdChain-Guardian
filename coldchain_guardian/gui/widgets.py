@@ -110,12 +110,12 @@ class AlertBanner(QFrame):
 
         self.show_normal()
 
-    def show_normal(self) -> None:
+    def show_normal(self, detail: str = "Nothing pending") -> None:
         self.show_state(
             tone=Tone.NORMAL,
             severity="NORMAL",
             headline="All systems normal",
-            detail="No unacknowledged warnings",
+            detail=detail,
         )
 
     def show_state(

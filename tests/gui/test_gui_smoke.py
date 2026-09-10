@@ -5,6 +5,9 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 
+from coldchain_guardian.contracts import now_iso
+from coldchain_guardian.gui.models import DashboardSnapshot
+
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
@@ -15,6 +18,38 @@ try:
 except ModuleNotFoundError:
     QApplication = None
     GUI_AVAILABLE = False
+
+
+def _snapshot(
+    shipment_id: str,
+    *,
+    temperature_c: float | None = 5.0,
+    status: str = "NORMAL",
+    door_state: str = "CLOSED",
+    door_open_too_long: bool = False,
+    cooling_failure: bool = False,
+) -> DashboardSnapshot:
+    """An otherwise-healthy snapshot, so each test varies one thing."""
+
+    return DashboardSnapshot.from_payload(
+        {
+            "schema_version": 1,
+            "shipment_id": shipment_id,
+            "timestamp": now_iso(),
+            "temperature_c": temperature_c,
+            "temperature_status": status,
+            "humidity_percent": 45.0,
+            "humidity_status": "NORMAL",
+            "door_state": door_state,
+            "door_open_too_long": door_open_too_long,
+            "cooling_state": "ON",
+            "cooling_failure": cooling_failure,
+            "control_mode": "AUTO",
+            "mqtt_connected": True,
+            "database_online": True,
+        },
+        expected_shipment_id=shipment_id,
+    )
 
 
 @unittest.skipUnless(GUI_AVAILABLE, "PySide6 is not installed")
@@ -106,57 +141,81 @@ class GuiSmokeTests(unittest.TestCase):
         self.assertFalse(dashboard.acknowledge_button.isEnabled())
         dashboard.close()
 
-    def test_alarm_banner_follows_unacknowledged_severity(self) -> None:
+    def test_banner_clears_once_the_condition_recovers(self) -> None:
         from coldchain_guardian.config import load_config
         from coldchain_guardian.contracts import Severity, now_iso
         from coldchain_guardian.gui.dashboard import DashboardWidget
         from coldchain_guardian.gui.models import AlertView
         from coldchain_guardian.gui.theme import Tone
 
-        def alert(
-            alert_id: int,
-            severity: Severity,
-            message: str,
-            *,
-            acknowledged: bool = False,
-        ) -> AlertView:
-            return AlertView(
-                alert_id=alert_id,
-                timestamp=now_iso(),
-                severity=severity,
-                alert_type="TEST",
-                message=message,
-                acknowledged=acknowledged,
-            )
-
-        dashboard = DashboardWidget(load_config())
+        config = load_config()
+        dashboard = DashboardWidget(config)
         banner = dashboard.banner
 
-        # An unacknowledged INFO event is not worth a banner.
-        dashboard.set_alerts([alert(1, Severity.INFO, "Shipment door opened")])
-        self.assertEqual(banner.property("tone"), str(Tone.NORMAL))
-
-        dashboard.add_or_update_alert(alert(2, Severity.WARNING, "Door Open Too Long"))
-        self.assertEqual(banner.property("tone"), str(Tone.WARNING))
-
+        dashboard.update_snapshot(
+            _snapshot(
+                config.shipment.id, temperature_c=11.2, status="ALARM_HIGH"
+            )
+        )
         dashboard.add_or_update_alert(
-            alert(3, Severity.ALARM, "Possible Cooling System Failure")
+            AlertView(
+                alert_id=1,
+                timestamp=now_iso(),
+                severity=Severity.ALARM,
+                alert_type="CRITICAL_HIGH_TEMPERATURE",
+                message="Critical high temperature: 11.2°C",
+                acknowledged=False,
+            )
         )
         self.assertEqual(banner.property("tone"), str(Tone.ALARM))
+
+        # Cooling brings the box back into range. The alert row stays in
+        # the log as an audit trail, but the banner must stop claiming it
+        # is still happening.
+        dashboard.update_snapshot(
+            _snapshot(config.shipment.id, temperature_c=5.1, status="NORMAL")
+        )
+        self.assertEqual(banner.property("tone"), str(Tone.NORMAL))
+        self.assertEqual(banner.headline_label.text(), "All systems normal")
+        self.assertIn("1 unacknowledged", banner.detail_label.text())
+        self.assertEqual(dashboard.alert_table.rowCount(), 1)
+        dashboard.close()
+
+    def test_banner_surfaces_conditions_with_no_card(self) -> None:
+        from coldchain_guardian.config import load_config
+        from coldchain_guardian.gui.dashboard import DashboardWidget
+        from coldchain_guardian.gui.theme import Tone
+
+        config = load_config()
+        dashboard = DashboardWidget(config)
+        banner = dashboard.banner
+
+        dashboard.update_snapshot(
+            _snapshot(
+                config.shipment.id,
+                door_state="OPEN",
+                door_open_too_long=True,
+            )
+        )
+        self.assertEqual(banner.property("tone"), str(Tone.WARNING))
         self.assertEqual(
-            banner.headline_label.text(), "Possible Cooling System Failure"
+            banner.headline_label.text(), "Door has been open too long"
         )
 
-        for acknowledged in (
-            alert(2, Severity.WARNING, "Door Open Too Long", acknowledged=True),
-            alert(
-                3,
-                Severity.ALARM,
-                "Possible Cooling System Failure",
-                acknowledged=True,
-            ),
-        ):
-            dashboard.add_or_update_alert(acknowledged)
+        # An alarm outranks the still-active door warning.
+        dashboard.update_snapshot(
+            _snapshot(
+                config.shipment.id,
+                door_open_too_long=True,
+                door_state="OPEN",
+                cooling_failure=True,
+            )
+        )
+        self.assertEqual(banner.property("tone"), str(Tone.ALARM))
+        self.assertIn("cooling failure", banner.headline_label.text())
+        self.assertIn("2 active conditions", banner.detail_label.text())
+
+        dashboard.update_snapshot(_snapshot(config.shipment.id))
         self.assertEqual(banner.property("tone"), str(Tone.NORMAL))
         dashboard.close()
 
